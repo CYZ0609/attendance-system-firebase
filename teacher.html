@@ -56,7 +56,7 @@
     function generateQR() {
       const classVal = document.getElementById("classSelect").value;
       const code = document.getElementById("codeInput").value;
-      const url = `student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
+const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
 
       QRCode.toCanvas(document.getElementById('qrcode'), url, function (error) {
         if (error) console.error(error);
