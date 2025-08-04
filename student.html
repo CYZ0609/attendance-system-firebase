@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>学生签到页面</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 100px; }
+    input, button { padding: 10px; font-size: 16px; margin: 10px; }
+  </style>
+</head>
+<body>
+
+  <h2>👨‍🎓 学生签到页面</h2>
+
+  <p>班级：<span id="classInfo"></span></p>
+  <p>签到码：<span id="codeInfo"></span></p>
+
+  <input id="studentName" placeholder="输入你的名字"><br>
+  <input id="studentID" placeholder="输入学号"><br>
+  <button onclick="submit()">签到</button>
+
+  <p id="result"></p>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBIs0Y4iNJNdFXkxeT9ab9ydZ7b5XCqr_4",
+      authDomain: "attendance-system-59efd.firebaseapp.com",
+      databaseURL: "https://attendance-system-59efd-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "attendance-system-59efd",
+      storageBucket: "attendance-system-59efd.firebasestorage.app",
+      messagingSenderId: "736876387284",
+      appId: "1:736876387284:web:388a8333274b970d9f5441",
+      measurementId: "G-EE5ZHM6L5R"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const params = new URLSearchParams(location.search);
+    const classVal = params.get("class");
+    const code = params.get("code");
+
+    document.getElementById("classInfo").textContent = classVal;
+    document.getElementById("codeInfo").textContent = code;
+
+    function submit() {
+      const name = document.getElementById("studentName").value.trim();
+      const id = document.getElementById("studentID").value.trim();
+      if (!name || !id) {
+        alert("请输入姓名和学号");
+        return;
+      }
+      const entry = `${name}（${id}）`;
+      db.ref("attendance/" + classVal).push(entry);
+      document.getElementById("result").textContent = "✅ 签到成功！";
+    }
+  </script>
+
+</body>
+</html>
