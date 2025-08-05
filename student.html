@@ -2,26 +2,24 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>学生签到页面</title>
+  <title>Student Check-In</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; margin-top: 100px; }
-    input, button { padding: 10px; font-size: 16px; margin: 10px; }
+    body { font-family: Arial; text-align: center; margin: 30px; }
+    input, button { padding: 10px; font-size: 16px; margin: 5px; }
   </style>
 </head>
 <body>
+  <h2>Student Check-In</h2>
 
-  <h2>👨‍🎓 学生签到页面</h2>
+  <label>Name:</label>
+  <input id="name" required><br>
+  <label>Student ID:</label>
+  <input id="studentId" required><br>
+  <button onclick="checkIn()">Submit</button>
 
-  <p>班级：<span id="classInfo"></span></p>
-  <p>签到码：<span id="codeInfo"></span></p>
-
-  <input id="studentName" placeholder="输入你的名字"><br>
-  <input id="studentID" placeholder="输入学号"><br>
-  <button onclick="submit()">签到</button>
-
-  <p id="result"></p>
+  <p id="message"></p>
 
   <script>
     const firebaseConfig = {
@@ -29,34 +27,61 @@
       authDomain: "attendance-system-59efd.firebaseapp.com",
       databaseURL: "https://attendance-system-59efd-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "attendance-system-59efd",
-      storageBucket: "attendance-system-59efd.firebasestorage.app",
+      storageBucket: "attendance-system-59efd.appspot.com",
       messagingSenderId: "736876387284",
-      appId: "1:736876387284:web:388a8333274b970d9f5441",
-      measurementId: "G-EE5ZHM6L5R"
+      appId: "1:736876387284:web:388a8333274b970d9f5441"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const params = new URLSearchParams(location.search);
-    const classVal = params.get("class");
+    const params = new URLSearchParams(window.location.search);
+    const className = params.get("class");
     const code = params.get("code");
 
-    document.getElementById("classInfo").textContent = classVal;
-    document.getElementById("codeInfo").textContent = code;
+    const allowedStart = 8;
+    const allowedEnd = 9;
 
-    function submit() {
-      const name = document.getElementById("studentName").value.trim();
-      const id = document.getElementById("studentID").value.trim();
-      if (!name || !id) {
-        alert("请输入姓名和学号");
+    function checkIn() {
+      const name = document.getElementById("name").value.trim();
+      const studentId = document.getElementById("studentId").value.trim();
+      const message = document.getElementById("message");
+
+      if (!name || !studentId) {
+        message.textContent = "Please fill in all fields.";
         return;
       }
-      const entry = `${name}（${id}）`;
-      db.ref("attendance/" + classVal).push(entry);
-      document.getElementById("result").textContent = "✅ 签到成功！";
+
+      const now = new Date();
+      const hour = now.getHours();
+      if (hour < allowedStart || hour >= allowedEnd) {
+        message.textContent = "Check-in is not allowed at this time.";
+        return;
+      }
+
+      const ref = db.ref("attendance/" + className);
+      ref.once("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        for (let key in data) {
+          if (data[key].name === name && data[key].id === studentId) {
+            message.textContent = "You have already checked in.";
+            return;
+          }
+        }
+
+        const timestamp = now.toLocaleTimeString();
+        const newKey = ref.push().key;
+        ref.child(newKey).set({ name: name, id: studentId, time: timestamp }, (error) => {
+          if (error) {
+            message.textContent = "Check-in failed. Please try again.";
+          } else {
+            message.textContent = "Check-in successful.";
+            document.getElementById("name").value = "";
+            document.getElementById("studentId").value = "";
+          }
+        });
+      });
     }
   </script>
-
 </body>
 </html>

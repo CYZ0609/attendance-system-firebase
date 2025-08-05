@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>老师签到控制台</title>
+  <title>Teacher Console</title>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -13,10 +13,9 @@
   </style>
 </head>
 <body>
+  <h2>Teacher Check-In Console</h2>
 
-  <h2>📘 老师签到控制台</h2>
-
-  <label>选择班级：</label>
+  <label>Class:</label>
   <select id="classSelect">
     <option value="2A">2A</option>
     <option value="2B">2B</option>
@@ -24,18 +23,18 @@
     <option value="3B">3B</option>
   </select>
 
-  <label>签到码：</label>
+  <label>Check-In Code:</label>
   <input id="codeInput" value="PM-2025">
 
-  <button onclick="generateQR()">生成签到二维码</button>
+  <button onclick="generateQR()">Generate QR Code</button>
 
   <br><br>
   <canvas id="qrcode"></canvas>
 
   <div id="studentList">
-    <h3>✅ 已签到名单</h3>
+    <h3>Checked-In Students</h3>
     <ul id="namesList"></ul>
-    <p><strong>总人数：<span id="count">0</span></strong></p>
+    <p><strong>Total: <span id="count">0</span> / <span id="expected">30</span> (<span id="percent">0</span>%)</strong></p>
   </div>
 
   <script>
@@ -44,19 +43,20 @@
       authDomain: "attendance-system-59efd.firebaseapp.com",
       databaseURL: "https://attendance-system-59efd-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "attendance-system-59efd",
-      storageBucket: "attendance-system-59efd.firebasestorage.app",
+      storageBucket: "attendance-system-59efd.appspot.com",
       messagingSenderId: "736876387284",
-      appId: "1:736876387284:web:388a8333274b970d9f5441",
-      measurementId: "G-EE5ZHM6L5R"
+      appId: "1:736876387284:web:388a8333274b970d9f5441"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    const EXPECTED = 30;
+
     function generateQR() {
       const classVal = document.getElementById("classSelect").value;
       const code = document.getElementById("codeInput").value;
-const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
+      const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
 
       QRCode.toCanvas(document.getElementById('qrcode'), url, function (error) {
         if (error) console.error(error);
@@ -68,6 +68,7 @@ const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?c
     function listenToAttendance(classVal) {
       const ul = document.getElementById("namesList");
       const count = document.getElementById("count");
+      const percent = document.getElementById("percent");
       ul.innerHTML = "";
       db.ref("attendance/" + classVal).on("value", (snapshot) => {
         ul.innerHTML = "";
@@ -75,20 +76,17 @@ const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?c
         let total = 0;
         for (let key in data) {
           const li = document.createElement("li");
-          li.textContent = data[key];
+          li.textContent = data[key].name + " (" + data[key].id + ") - " + data[key].time;
           ul.appendChild(li);
           total++;
         }
         count.textContent = total;
+        percent.textContent = ((total / EXPECTED) * 100).toFixed(1);
       });
     }
 
-    document.getElementById("classSelect").addEventListener("change", () => {
-      generateQR();
-    });
-
+    document.getElementById("classSelect").addEventListener("change", generateQR);
     window.onload = generateQR;
   </script>
-
 </body>
 </html>
