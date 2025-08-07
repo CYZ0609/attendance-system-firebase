@@ -8,34 +8,36 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <style>
     body { font-family: Arial; text-align: center; margin: 30px; }
-    select, input, button { padding: 10px; font-size: 16px; margin: 5px; }
-    #studentList { margin-top: 30px; text-align: left; display: inline-block; }
+    select, input, button { padding: 8px; font-size: 14px; margin: 4px; }
+    #studentList { margin-top: 20px; text-align: left; display: inline-block; }
+    .row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
   </style>
 </head>
 <body>
 
   <h2>Teacher Attendance Console</h2>
 
-  <label>Class:</label>
-  <select id="classSelect">
-    <option value="2A">2A</option>
-    <option value="2B">2B</option>
-    <option value="3A">3A</option>
-    <option value="3B">3B</option>
-  </select>
+  <div class="row">
+    <label>Class:</label>
+    <select id="classSelect">
+      <option value="2A">2A</option>
+      <option value="2B">2B</option>
+      <option value="3A">3A</option>
+      <option value="3B">3B</option>
+    </select>
 
-  <label>Code:</label>
-  <input id="codeInput" value="PM-2025">
+    <label>Code:</label>
+    <input id="codeInput" value="PM-2025">
+  </div>
 
-  <br>
-  <label>Start Time:</label>
-  <input type="time" id="startTime" value="08:00">
+  <div class="row">
+    <label>Start:</label>
+    <input type="time" id="startTime" value="08:00">
+    <label>End:</label>
+    <input type="time" id="endTime" value="09:00">
+  </div>
 
-  <label>End Time:</label>
-  <input type="time" id="endTime" value="09:00">
-
-  <br><br>
-  <button onclick="generateQR()">Generate QR Code</button>
+  <button onclick="generateQR()">Generate QR</button>
 
   <br><br>
   <canvas id="qrcode"></canvas>
@@ -44,7 +46,7 @@
     <h3>Checked-in Students</h3>
     <ul id="namesList"></ul>
     <p><strong>Total: <span id="count">0</span></strong></p>
-    <p><strong>Check-in Rate: <span id="rate">0%</span></strong></p>
+    <p><strong>Rate: <span id="rate">0%</span></strong></p>
   </div>
 
   <script>
@@ -74,14 +76,15 @@
       });
 
       db.ref("settings/" + classVal).set({ code: code, start: start, end: end });
-      listenToAttendance(classVal);
+      loadAttendance(classVal);
     }
 
-    function listenToAttendance(classVal) {
+    function loadAttendance(classVal) {
       const ul = document.getElementById("namesList");
       const count = document.getElementById("count");
       const rate = document.getElementById("rate");
-      ul.innerHTML = "";
+      ul.innerHTML = "<li>Loading...</li>";
+
       db.ref("attendance/" + classVal).on("value", (snapshot) => {
         ul.innerHTML = "";
         const data = snapshot.val();
@@ -107,6 +110,6 @@
 
     window.onload = generateQR;
   </script>
+
 </body>
 </html>
-
