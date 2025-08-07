@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Teacher Console</title>
+  <title>Teacher Attendance Console</title>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -13,7 +13,8 @@
   </style>
 </head>
 <body>
-  <h2>Teacher Check-In Console</h2>
+
+  <h2>Teacher Attendance Console</h2>
 
   <label>Class:</label>
   <select id="classSelect">
@@ -23,18 +24,27 @@
     <option value="3B">3B</option>
   </select>
 
-  <label>Check-In Code:</label>
+  <label>Code:</label>
   <input id="codeInput" value="PM-2025">
 
+  <br>
+  <label>Start Time:</label>
+  <input type="time" id="startTime" value="08:00">
+
+  <label>End Time:</label>
+  <input type="time" id="endTime" value="09:00">
+
+  <br><br>
   <button onclick="generateQR()">Generate QR Code</button>
 
   <br><br>
   <canvas id="qrcode"></canvas>
 
   <div id="studentList">
-    <h3>Checked-In Students</h3>
+    <h3>Checked-in Students</h3>
     <ul id="namesList"></ul>
-    <p><strong>Total: <span id="count">0</span> / <span id="expected">30</span> (<span id="percent">0</span>%)</strong></p>
+    <p><strong>Total: <span id="count">0</span></strong></p>
+    <p><strong>Check-in Rate: <span id="rate">0%</span></strong></p>
   </div>
 
   <script>
@@ -51,24 +61,26 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const EXPECTED = 30;
-
     function generateQR() {
       const classVal = document.getElementById("classSelect").value;
       const code = document.getElementById("codeInput").value;
+      const start = document.getElementById("startTime").value;
+      const end = document.getElementById("endTime").value;
+
       const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
 
       QRCode.toCanvas(document.getElementById('qrcode'), url, function (error) {
         if (error) console.error(error);
       });
 
+      db.ref("settings/" + classVal).set({ code: code, start: start, end: end });
       listenToAttendance(classVal);
     }
 
     function listenToAttendance(classVal) {
       const ul = document.getElementById("namesList");
       const count = document.getElementById("count");
-      const percent = document.getElementById("percent");
+      const rate = document.getElementById("rate");
       ul.innerHTML = "";
       db.ref("attendance/" + classVal).on("value", (snapshot) => {
         ul.innerHTML = "";
@@ -81,12 +93,20 @@
           total++;
         }
         count.textContent = total;
-        percent.textContent = ((total / EXPECTED) * 100).toFixed(1);
+        db.ref("roster/" + classVal).once("value", snap => {
+          const students = snap.val();
+          const percent = students ? Math.round((total / Object.keys(students).length) * 100) : 0;
+          rate.textContent = percent + "%";
+        });
       });
     }
 
-    document.getElementById("classSelect").addEventListener("change", generateQR);
+    document.getElementById("classSelect").addEventListener("change", () => {
+      generateQR();
+    });
+
     window.onload = generateQR;
   </script>
 </body>
 </html>
+
