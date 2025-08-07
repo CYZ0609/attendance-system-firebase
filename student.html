@@ -6,20 +6,17 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; margin: 30px; }
+    body { font-family: Arial; text-align: center; margin: 50px; }
     input, button { padding: 10px; font-size: 16px; margin: 5px; }
   </style>
 </head>
 <body>
+
   <h2>Student Check-In</h2>
-
-  <label>Name:</label>
-  <input id="name" required><br>
-  <label>Student ID:</label>
-  <input id="studentId" required><br>
+  <input id="nameInput" placeholder="Your Name" required>
+  <input id="idInput" placeholder="Student ID" required>
   <button onclick="checkIn()">Submit</button>
-
-  <p id="message"></p>
+  <p id="msg"></p>
 
   <script>
     const firebaseConfig = {
@@ -36,48 +33,50 @@
     const db = firebase.database();
 
     const params = new URLSearchParams(window.location.search);
-    const className = params.get("class");
-    const code = params.get("code");
-
-    const allowedStart = 8;
-    const allowedEnd = 9;
+    const classVal = params.get("class");
+    const codeVal = params.get("code");
 
     function checkIn() {
-      const name = document.getElementById("name").value.trim();
-      const studentId = document.getElementById("studentId").value.trim();
-      const message = document.getElementById("message");
+      const name = document.getElementById("nameInput").value.trim();
+      const id = document.getElementById("idInput").value.trim();
+      const msg = document.getElementById("msg");
 
-      if (!name || !studentId) {
-        message.textContent = "Please fill in all fields.";
+      if (!name || !id) {
+        msg.textContent = "Name and ID are required.";
         return;
       }
 
-      const now = new Date();
-      const hour = now.getHours();
-      if (hour < allowedStart || hour >= allowedEnd) {
-        message.textContent = "Check-in is not allowed at this time.";
-        return;
-      }
-
-      const ref = db.ref("attendance/" + className);
-      ref.once("value", (snapshot) => {
-        const data = snapshot.val() || {};
-        for (let key in data) {
-          if (data[key].name === name && data[key].id === studentId) {
-            message.textContent = "You have already checked in.";
-            return;
-          }
+      db.ref("settings/" + classVal).once("value", (snap) => {
+        const settings = snap.val();
+        if (!settings || settings.code !== codeVal) {
+          msg.textContent = "Invalid class or code.";
+          return;
         }
 
-        const timestamp = now.toLocaleTimeString();
-        const newKey = ref.push().key;
-        ref.child(newKey).set({ name: name, id: studentId, time: timestamp }, (error) => {
-          if (error) {
-            message.textContent = "Check-in failed. Please try again.";
+        const now = new Date();
+        const nowTime = now.getHours().toString().padStart(2, '0') + ":" +
+                        now.getMinutes().toString().padStart(2, '0');
+
+        if (nowTime < settings.start || nowTime > settings.end) {
+          msg.textContent = "Check-in not allowed at this time.";
+          return;
+        }
+
+        const studentKey = id + "_" + name;
+
+        db.ref("attendance/" + classVal + "/" + studentKey).once("value", (snap) => {
+          if (snap.exists()) {
+            msg.textContent = "You have already checked in.";
           } else {
-            message.textContent = "Check-in successful.";
-            document.getElementById("name").value = "";
-            document.getElementById("studentId").value = "";
+            const time = nowTime;
+            db.ref("attendance/" + classVal + "/" + studentKey).set({
+              name: name,
+              id: id,
+              time: time
+            });
+            msg.textContent = "Check-in successful.";
+            document.getElementById("nameInput").value = "";
+            document.getElementById("idInput").value = "";
           }
         });
       });
