@@ -6,17 +6,70 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; margin: 50px; }
-    input, button { padding: 10px; font-size: 16px; margin: 5px; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 100px auto;
+      padding: 30px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 80%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 15px;
+      margin-top: 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+      background: #28a745;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #1e7e34;
+    }
+
+    #msg {
+      margin-top: 15px;
+      font-weight: bold;
+      color: #555;
+    }
   </style>
 </head>
 <body>
 
-  <h2>Student Check-In</h2>
-  <input id="nameInput" placeholder="Your Name" required>
-  <input id="idInput" placeholder="Student ID" required>
-  <button onclick="checkIn()">Submit</button>
-  <p id="msg"></p>
+  <div class="container">
+    <h2>Student Check-In</h2>
+    <input id="nameInput" placeholder="Your Name" required>
+    <input id="idInput" placeholder="Student ID" required>
+    <br>
+    <button onclick="checkIn()">Submit</button>
+    <p id="msg"></p>
+  </div>
 
   <script>
     const firebaseConfig = {
@@ -43,6 +96,7 @@
 
       if (!name || !id) {
         msg.textContent = "Name and ID are required.";
+        msg.style.color = "red";
         return;
       }
 
@@ -50,6 +104,7 @@
         const settings = snap.val();
         if (!settings || settings.code !== codeVal) {
           msg.textContent = "Invalid class or code.";
+          msg.style.color = "red";
           return;
         }
 
@@ -59,6 +114,7 @@
 
         if (nowTime < settings.start || nowTime > settings.end) {
           msg.textContent = "Check-in not allowed at this time.";
+          msg.style.color = "red";
           return;
         }
 
@@ -67,6 +123,7 @@
         db.ref("attendance/" + classVal + "/" + studentKey).once("value", (snap) => {
           if (snap.exists()) {
             msg.textContent = "You have already checked in.";
+            msg.style.color = "orange";
           } else {
             const time = nowTime;
             db.ref("attendance/" + classVal + "/" + studentKey).set({
@@ -74,7 +131,8 @@
               id: id,
               time: time
             });
-            msg.textContent = "Check-in successful.";
+            msg.textContent = "Check-in successful!";
+            msg.style.color = "green";
             document.getElementById("nameInput").value = "";
             document.getElementById("idInput").value = "";
           }
