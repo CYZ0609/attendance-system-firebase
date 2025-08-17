@@ -32,21 +32,22 @@
 
   <div class="row">
     <label>Start:</label>
-    <input type="text" id="startTime" placeholder="HH:MM">
-
+    <input type="time" id="startTime" value="08:00">
     <label>End:</label>
-    <input type="text" id="endTime" placeholder="HH:MM">
+    <input type="time" id="endTime" value="09:00">
   </div>
 
   <button onclick="generateQR()">Generate QR</button>
 
   <br><br>
   <canvas id="qrcode"></canvas>
+  <p id="timeInfo"></p>
 
   <div id="studentList">
     <h3>Checked-in Students</h3>
     <ul id="namesList"></ul>
     <p><strong>Total: <span id="count">0</span></strong></p>
+    <p><strong>Rate: <span id="rate">0%</span></strong></p>
   </div>
 
   <script>
@@ -63,20 +64,11 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function validateTimeFormat(time) {
-      return /^([01]\d|2[0-3]):([0-5]\d)$/.test(time);
-    }
-
     function generateQR() {
       const classVal = document.getElementById("classSelect").value;
       const code = document.getElementById("codeInput").value;
       const start = document.getElementById("startTime").value;
       const end = document.getElementById("endTime").value;
-
-      if (!validateTimeFormat(start) || !validateTimeFormat(end)) {
-        alert("Please enter time in HH:MM format (e.g., 08:30).");
-        return;
-      }
 
       const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
 
@@ -84,13 +76,20 @@
         if (error) console.error(error);
       });
 
+      // Save settings
       db.ref("settings/" + classVal).set({ code: code, start: start, end: end });
+
+      // Show time info under QR
+      document.getElementById("timeInfo").textContent = 
+        `Check-in time: ${start} - ${end}`;
+
       loadAttendance(classVal);
     }
 
     function loadAttendance(classVal) {
       const ul = document.getElementById("namesList");
       const count = document.getElementById("count");
+      const rate = document.getElementById("rate");
       ul.innerHTML = "<li>Loading...</li>";
 
       db.ref("attendance/" + classVal).on("value", (snapshot) => {
@@ -104,6 +103,11 @@
           total++;
         }
         count.textContent = total;
+        db.ref("roster/" + classVal).once("value", snap => {
+          const students = snap.val();
+          const percent = students ? Math.round((total / Object.keys(students).length) * 100) : 0;
+          rate.textContent = percent + "%";
+        });
       });
     }
 
