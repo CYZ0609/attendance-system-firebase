@@ -53,12 +53,14 @@
           return;
         }
 
+        // Current time in HH:MM format
         const now = new Date();
         const nowTime = now.getHours().toString().padStart(2, '0') + ":" +
                         now.getMinutes().toString().padStart(2, '0');
 
+        // Compare with allowed start/end time
         if (nowTime < settings.start || nowTime > settings.end) {
-          msg.textContent = "Check-in not allowed at this time.";
+          msg.textContent = `Check-in not allowed. Allowed time: ${settings.start} - ${settings.end}`;
           return;
         }
 
@@ -68,11 +70,10 @@
           if (snap.exists()) {
             msg.textContent = "You have already checked in.";
           } else {
-            const time = nowTime;
             db.ref("attendance/" + classVal + "/" + studentKey).set({
               name: name,
               id: id,
-              time: time
+              time: nowTime
             });
             msg.textContent = "Check-in successful.";
             document.getElementById("nameInput").value = "";
