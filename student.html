@@ -17,7 +17,6 @@
   <input id="idInput" placeholder="Student ID" required>
   <button onclick="checkIn()">Submit</button>
   <p id="msg"></p>
-  <p id="countdown"></p>
 
   <script>
     const firebaseConfig = {
@@ -37,50 +36,7 @@
     const classVal = params.get("class");
     const codeVal = params.get("code");
 
-    let settings = null;
-
-    db.ref("settings/" + classVal).on("value", (snap) => {
-      settings = snap.val();
-      if (settings) {
-        startCountdown(settings.start, settings.end);
-      }
-    });
-
-    function startCountdown(start, end) {
-      function updateCountdown() {
-        const now = new Date();
-        const nowTime = now.getHours().toString().padStart(2, '0') + ":" +
-                        now.getMinutes().toString().padStart(2, '0');
-        const msg = document.getElementById("msg");
-        const countdown = document.getElementById("countdown");
-
-        if (nowTime < start) {
-          msg.textContent = "Check-in has not started yet.";
-          countdown.textContent = "";
-        } else if (nowTime > end) {
-          msg.textContent = "Check-in is closed.";
-          countdown.textContent = "";
-        } else {
-          msg.textContent = "";
-          const [h, m] = end.split(":");
-          const endDate = new Date();
-          endDate.setHours(h, m, 0, 0);
-          const diff = Math.max(0, endDate - now);
-          const mins = Math.floor(diff / 60000);
-          const secs = Math.floor((diff % 60000) / 1000);
-          countdown.textContent = `Time left: ${mins}m ${secs}s`;
-        }
-      }
-      setInterval(updateCountdown, 1000);
-      updateCountdown();
-    }
-
     function checkIn() {
-      if (!settings) {
-        document.getElementById("msg").textContent = "No active session found.";
-        return;
-      }
-
       const name = document.getElementById("nameInput").value.trim();
       const id = document.getElementById("idInput").value.trim();
       const msg = document.getElementById("msg");
@@ -90,31 +46,39 @@
         return;
       }
 
-      const now = new Date();
-      const nowTime = now.getHours().toString().padStart(2, '0') + ":" +
-                      now.getMinutes().toString().padStart(2, '0');
-
-      if (nowTime < settings.start || nowTime > settings.end) {
-        msg.textContent = "Check-in not allowed at this time.";
-        return;
-      }
-
-      const studentKey = id + "_" + name;
-
-      db.ref("attendance/" + classVal + "/" + studentKey).once("value", (snap) => {
-        if (snap.exists()) {
-          msg.textContent = "You have already checked in.";
-        } else {
-          const time = nowTime;
-          db.ref("attendance/" + classVal + "/" + studentKey).set({
-            name: name,
-            id: id,
-            time: time
-          });
-          msg.textContent = "Check-in successful.";
-          document.getElementById("nameInput").value = "";
-          document.getElementById("idInput").value = "";
+      db.ref("settings/" + classVal).once("value", (snap) => {
+        const settings = snap.val();
+        if (!settings || settings.code !== codeVal) {
+          msg.textContent = "Invalid class or code.";
+          return;
         }
+
+        const now = new Date();
+        const nowTime = now.getHours().toString().padStart(2, '0') + ":" +
+                        now.getMinutes().toString().padStart(2, '0');
+
+        if (nowTime < settings.start || nowTime > settings.end) {
+          msg.textContent = "Check-in not allowed at this time.";
+          return;
+        }
+
+        const studentKey = id + "_" + name;
+
+        db.ref("attendance/" + classVal + "/" + studentKey).once("value", (snap) => {
+          if (snap.exists()) {
+            msg.textContent = "You have already checked in.";
+          } else {
+            const time = nowTime;
+            db.ref("attendance/" + classVal + "/" + studentKey).set({
+              name: name,
+              id: id,
+              time: time
+            });
+            msg.textContent = "Check-in successful.";
+            document.getElementById("nameInput").value = "";
+            document.getElementById("idInput").value = "";
+          }
+        });
       });
     }
   </script>
