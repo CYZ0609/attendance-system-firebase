@@ -6,7 +6,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-  <style>  
+  <style>
     body { font-family: Arial; text-align: center; margin: 30px; }
     select, input, button { padding: 8px; font-size: 14px; margin: 4px; }
     #studentList { margin-top: 20px; text-align: left; display: inline-block; }
@@ -41,16 +41,16 @@
 
   <br><br>
   <canvas id="qrcode"></canvas>
+  <p id="timeInfo"></p>
 
   <div id="studentList">
     <h3>Checked-in Students</h3>
-    <ul id="namesList"><li>No student has checked in yet.</li></ul>
+    <ul id="namesList"></ul>
     <p><strong>Total: <span id="count">0</span></strong></p>
     <p><strong>Rate: <span id="rate">0%</span></strong></p>
   </div>
 
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBIs0Y4iNJNdFXkxeT9ab9ydZ7b5XCqr_4",
       authDomain: "attendance-system-59efd.firebaseapp.com",
@@ -64,25 +64,25 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let currentListener = null; // 🔹 Track current listener
-
     function generateQR() {
       const classVal = document.getElementById("classSelect").value;
       const code = document.getElementById("codeInput").value;
       const start = document.getElementById("startTime").value;
       const end = document.getElementById("endTime").value;
 
-      // QR code URL must match your GitHub Pages repo path
       const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
 
       QRCode.toCanvas(document.getElementById('qrcode'), url, function (error) {
         if (error) console.error(error);
       });
 
-      // Save settings for this class
+      // Save settings
       db.ref("settings/" + classVal).set({ code: code, start: start, end: end });
 
-      // Load attendance
+      // Show time info under QR
+      document.getElementById("timeInfo").textContent = 
+        `Check-in time: ${start} - ${end}`;
+
       loadAttendance(classVal);
     }
 
@@ -90,40 +90,22 @@
       const ul = document.getElementById("namesList");
       const count = document.getElementById("count");
       const rate = document.getElementById("rate");
-
       ul.innerHTML = "<li>Loading...</li>";
-
-      // 🔹 Remove previous listener
-      if (currentListener) {
-        db.ref("attendance/" + currentListener).off();
-      }
-      currentListener = classVal;
 
       db.ref("attendance/" + classVal).on("value", (snapshot) => {
         ul.innerHTML = "";
         const data = snapshot.val();
         let total = 0;
-
-        if (data) {
-          for (let key in data) {
-            const li = document.createElement("li");
-            li.textContent = data[key].name + " (" + data[key].id + ") - " + data[key].time;
-            ul.appendChild(li);
-            total++;
-          }
-        } else {
-          ul.innerHTML = "<li>No student has checked in yet.</li>";
+        for (let key in data) {
+          const li = document.createElement("li");
+          li.textContent = data[key].name + " (" + data[key].id + ") - " + data[key].time;
+          ul.appendChild(li);
+          total++;
         }
-
         count.textContent = total;
-
-        // 🔹 Calculate percentage
         db.ref("roster/" + classVal).once("value", snap => {
           const students = snap.val();
-          let percent = 0;
-          if (students && Object.keys(students).length > 0) {
-            percent = Math.round((total / Object.keys(students).length) * 100);
-          }
+          const percent = students ? Math.round((total / Object.keys(students).length) * 100) : 0;
           rate.textContent = percent + "%";
         });
       });
