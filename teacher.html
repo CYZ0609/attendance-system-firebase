@@ -2,53 +2,21 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Teacher Attendance Console</title>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <title>Student Check-In</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; margin: 30px; }
-    select, input, button { padding: 8px; font-size: 14px; margin: 4px; }
-    #studentList { margin-top: 20px; text-align: left; display: inline-block; }
-    .row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px; }
+    body { font-family: Arial; text-align: center; margin: 50px; }
+    input, button { padding: 10px; font-size: 16px; margin: 5px; }
   </style>
 </head>
 <body>
 
-  <h2>Teacher Attendance Console</h2>
-
-  <div class="row">
-    <label>Class:</label>
-    <select id="classSelect">
-      <option value="2A">2A</option>
-      <option value="2B">2B</option>
-      <option value="3A">3A</option>
-      <option value="3B">3B</option>
-    </select>
-
-    <label>Code:</label>
-    <input id="codeInput" value="PM-2025">
-  </div>
-
-  <div class="row">
-    <label>Start:</label>
-    <input type="time" id="startTime" value="08:00">
-    <label>End:</label>
-    <input type="time" id="endTime" value="09:00">
-  </div>
-
-  <button onclick="generateQR()">Generate QR</button>
-
-  <br><br>
-  <canvas id="qrcode"></canvas>
-  <p id="timeInfo"></p>
-
-  <div id="studentList">
-    <h3>Checked-in Students</h3>
-    <ul id="namesList"></ul>
-    <p><strong>Total: <span id="count">0</span></strong></p>
-    <p><strong>Rate: <span id="rate">0%</span></strong></p>
-  </div>
+  <h2>Student Check-In</h2>
+  <input id="nameInput" placeholder="Your Name" required>
+  <input id="idInput" placeholder="Student ID" required>
+  <button onclick="checkIn()">Submit</button>
+  <p id="msg"></p>
 
   <script>
     const firebaseConfig = {
@@ -64,59 +32,55 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function generateQR() {
-      const classVal = document.getElementById("classSelect").value;
-      const code = document.getElementById("codeInput").value;
-      const start = document.getElementById("startTime").value;
-      const end = document.getElementById("endTime").value;
+    const params = new URLSearchParams(window.location.search);
+    const classVal = params.get("class");
+    const codeVal = params.get("code");
 
-      const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
+    function checkIn() {
+      const name = document.getElementById("nameInput").value.trim();
+      const id = document.getElementById("idInput").value.trim();
+      const msg = document.getElementById("msg");
 
-      QRCode.toCanvas(document.getElementById('qrcode'), url, function (error) {
-        if (error) console.error(error);
-      });
+      if (!name || !id) {
+        msg.textContent = "Name and ID are required.";
+        return;
+      }
 
-      // Save settings
-      db.ref("settings/" + classVal).set({ code: code, start: start, end: end });
-
-      // Show time info under QR
-      document.getElementById("timeInfo").textContent = 
-        `Check-in time: ${start} - ${end}`;
-
-      loadAttendance(classVal);
-    }
-
-    function loadAttendance(classVal) {
-      const ul = document.getElementById("namesList");
-      const count = document.getElementById("count");
-      const rate = document.getElementById("rate");
-      ul.innerHTML = "<li>Loading...</li>";
-
-      db.ref("attendance/" + classVal).on("value", (snapshot) => {
-        ul.innerHTML = "";
-        const data = snapshot.val();
-        let total = 0;
-        for (let key in data) {
-          const li = document.createElement("li");
-          li.textContent = data[key].name + " (" + data[key].id + ") - " + data[key].time;
-          ul.appendChild(li);
-          total++;
+      db.ref("settings/" + classVal).once("value", (snap) => {
+        const settings = snap.val();
+        if (!settings || settings.code !== codeVal) {
+          msg.textContent = "Invalid class or code.";
+          return;
         }
-        count.textContent = total;
-        db.ref("roster/" + classVal).once("value", snap => {
-          const students = snap.val();
-          const percent = students ? Math.round((total / Object.keys(students).length) * 100) : 0;
-          rate.textContent = percent + "%";
+
+        const now = new Date();
+        const nowTime = now.getHours().toString().padStart(2, '0') + ":" +
+                        now.getMinutes().toString().padStart(2, '0');
+
+        if (nowTime < settings.start || nowTime > settings.end) {
+          msg.textContent = "Check-in not allowed at this time.";
+          return;
+        }
+
+        const studentKey = id + "_" + name;
+
+        db.ref("attendance/" + classVal + "/" + studentKey).once("value", (snap) => {
+          if (snap.exists()) {
+            msg.textContent = "You have already checked in.";
+          } else {
+            const time = nowTime;
+            db.ref("attendance/" + classVal + "/" + studentKey).set({
+              name: name,
+              id: id,
+              time: time
+            });
+            msg.textContent = "Check-in successful.";
+            document.getElementById("nameInput").value = "";
+            document.getElementById("idInput").value = "";
+          }
         });
       });
     }
-
-    document.getElementById("classSelect").addEventListener("change", () => {
-      generateQR();
-    });
-
-    window.onload = generateQR;
   </script>
-
 </body>
 </html>
