@@ -8,46 +8,52 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
   <style>
     body { font-family: Arial; text-align: center; margin: 30px; }
-    select, input, button { padding: 10px; font-size: 16px; margin: 5px; }
-    #studentList { margin-top: 30px; text-align: left; display: inline-block; }
+    select, input, button { padding: 8px; font-size: 14px; margin: 4px; }
+    #studentList { margin-top: 20px; text-align: left; display: inline-block; }
+    .row { margin-top: 10px; }
   </style>
 </head>
 <body>
 
   <h2>Teacher Attendance Console</h2>
 
-  <label>Class:</label>
-  <select id="classSelect">
-    <option value="2A">2A</option>
-    <option value="2B">2B</option>
-    <option value="3A">3A</option>
-    <option value="3B">3B</option>
-  </select>
+  <div class="row">
+    <label>Class:</label>
+    <select id="classSelect">
+      <option value="2A">2A</option>
+      <option value="2B">2B</option>
+      <option value="3A">3A</option>
+      <option value="3B">3B</option>
+    </select>
 
-  <label>Code:</label>
-  <input id="codeInput" value="PM-2025">
+    <label>Code:</label>
+    <input id="codeInput" value="PM-2025">
+  </div>
 
-  <br>
-  <label>Start Time:</label>
-  <input type="time" id="startTime" value="08:00">
+  <div class="row">
+    <label>Start:</label>
+    <input type="number" id="startHour" min="0" max="23" value="8"> :
+    <input type="number" id="startMinute" min="0" max="59" value="0">
 
-  <label>End Time:</label>
-  <input type="time" id="endTime" value="09:00">
+    <label>End:</label>
+    <input type="number" id="endHour" min="0" max="23" value="9"> :
+    <input type="number" id="endMinute" min="0" max="59" value="0">
+  </div>
 
-  <br><br>
-  <button onclick="generateQR()">Generate QR Code</button>
+  <button onclick="generateQR()">Generate QR</button>
 
   <br><br>
   <canvas id="qrcode"></canvas>
 
   <div id="studentList">
     <h3>Checked-in Students</h3>
-    <ul id="namesList"></ul>
+    <ul id="namesList"><li>No student has checked in yet.</li></ul>
     <p><strong>Total: <span id="count">0</span></strong></p>
-    <p><strong>Check-in Rate: <span id="rate">0%</span></strong></p>
+    <p><strong>Rate: <span id="rate">0%</span></strong></p>
   </div>
 
   <script>
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBIs0Y4iNJNdFXkxeT9ab9ydZ7b5XCqr_4",
       authDomain: "attendance-system-59efd.firebaseapp.com",
@@ -61,11 +67,20 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    let currentListener = null;
+
     function generateQR() {
       const classVal = document.getElementById("classSelect").value;
       const code = document.getElementById("codeInput").value;
-      const start = document.getElementById("startTime").value;
-      const end = document.getElementById("endTime").value;
+
+      // get start and end time from number inputs
+      const startHour = document.getElementById("startHour").value.padStart(2, "0");
+      const startMinute = document.getElementById("startMinute").value.padStart(2, "0");
+      const endHour = document.getElementById("endHour").value.padStart(2, "0");
+      const endMinute = document.getElementById("endMinute").value.padStart(2, "0");
+
+      const start = `${startHour}:${startMinute}`;
+      const end = `${endHour}:${endMinute}`;
 
       const url = `https://cyz0609.github.io/attendance-system-firebase/student.html?class=${classVal}&code=${encodeURIComponent(code)}`;
 
@@ -74,28 +89,45 @@
       });
 
       db.ref("settings/" + classVal).set({ code: code, start: start, end: end });
-      listenToAttendance(classVal);
+      loadAttendance(classVal);
     }
 
-    function listenToAttendance(classVal) {
+    function loadAttendance(classVal) {
       const ul = document.getElementById("namesList");
       const count = document.getElementById("count");
       const rate = document.getElementById("rate");
-      ul.innerHTML = "";
+
+      ul.innerHTML = "<li>Loading...</li>";
+
+      if (currentListener) {
+        db.ref("attendance/" + currentListener).off();
+      }
+      currentListener = classVal;
+
       db.ref("attendance/" + classVal).on("value", (snapshot) => {
         ul.innerHTML = "";
         const data = snapshot.val();
         let total = 0;
-        for (let key in data) {
-          const li = document.createElement("li");
-          li.textContent = data[key].name + " (" + data[key].id + ") - " + data[key].time;
-          ul.appendChild(li);
-          total++;
+
+        if (data) {
+          for (let key in data) {
+            const li = document.createElement("li");
+            li.textContent = data[key].name + " (" + data[key].id + ") - " + data[key].time;
+            ul.appendChild(li);
+            total++;
+          }
+        } else {
+          ul.innerHTML = "<li>No student has checked in yet.</li>";
         }
+
         count.textContent = total;
+
         db.ref("roster/" + classVal).once("value", snap => {
           const students = snap.val();
-          const percent = students ? Math.round((total / Object.keys(students).length) * 100) : 0;
+          let percent = 0;
+          if (students && Object.keys(students).length > 0) {
+            percent = Math.round((total / Object.keys(students).length) * 100);
+          }
           rate.textContent = percent + "%";
         });
       });
@@ -107,5 +139,6 @@
 
     window.onload = generateQR;
   </script>
+
 </body>
 </html>
