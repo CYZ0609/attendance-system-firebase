@@ -8,6 +8,9 @@
   <style>
     body { font-family: Arial; text-align: center; margin: 50px; }
     input, button { padding: 10px; font-size: 16px; margin: 5px; }
+    #msg { font-weight: bold; margin-top: 15px; }
+    .success { color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
@@ -19,6 +22,7 @@
   <p id="msg"></p>
 
   <script>
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBIs0Y4iNJNdFXkxeT9ab9ydZ7b5XCqr_4",
       authDomain: "attendance-system-59efd.firebaseapp.com",
@@ -32,55 +36,84 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // Get params from QR link
     const params = new URLSearchParams(window.location.search);
     const classVal = params.get("class");
     const codeVal = params.get("code");
 
+    // Helper: convert HH:mm to minutes
+    function timeToMinutes(t) {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    // Display message
+    function showMsg(text, type="error") {
+      const msg = document.getElementById("msg");
+      msg.textContent = text;
+      msg.className = type;
+    }
+
+    // Check-in function
     function checkIn() {
       const name = document.getElementById("nameInput").value.trim();
       const id = document.getElementById("idInput").value.trim();
-      const msg = document.getElementById("msg");
 
       if (!name || !id) {
-        msg.textContent = "Name and ID are required.";
+        showMsg("Name and ID are required.", "error");
         return;
       }
 
-      db.ref("settings/" + classVal).once("value", (snap) => {
-        const settings = snap.val();
-        if (!settings || settings.code !== codeVal) {
-          msg.textContent = "Invalid class or code.";
-          return;
-        }
-
-        const now = new Date();
-        const nowTime = now.getHours().toString().padStart(2, '0') + ":" +
-                        now.getMinutes().toString().padStart(2, '0');
-
-        if (nowTime < settings.start || nowTime > settings.end) {
-          msg.textContent = "Check-in not allowed at this time.";
-          return;
-        }
-
-        const studentKey = id + "_" + name;
-
-        db.ref("attendance/" + classVal + "/" + studentKey).once("value", (snap) => {
-          if (snap.exists()) {
-            msg.textContent = "You have already checked in.";
-          } else {
-            const time = nowTime;
-            db.ref("attendance/" + classVal + "/" + studentKey).set({
-              name: name,
-              id: id,
-              time: time
-            });
-            msg.textContent = "Check-in successful.";
-            document.getElementById("nameInput").value = "";
-            document.getElementById("idInput").value = "";
+      db.ref("settings/" + classVal).once("value")
+        .then((snap) => {
+          const settings = snap.val();
+          if (!settings || settings.code !== codeVal) {
+            showMsg("Invalid class or code.", "error");
+            return;
           }
+
+          const now = new Date();
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          const startMinutes = timeToMinutes(settings.start);
+          const endMinutes = timeToMinutes(settings.end);
+
+          if (nowMinutes < startMinutes || nowMinutes > endMinutes) {
+            showMsg("Check-in not allowed at this time.", "error");
+            return;
+          }
+
+          const studentKey = id; // use ID as unique key
+          const timeStr = now.toTimeString().slice(0, 5);
+
+          db.ref("attendance/" + classVal + "/" + studentKey).once("value")
+            .then((snap) => {
+              if (snap.exists()) {
+                showMsg("You have already checked in.", "error");
+              } else {
+                db.ref("attendance/" + classVal + "/" + studentKey).set({
+                  name: name,
+                  id: id,
+                  time: timeStr
+                });
+
+                // also add to roster if not exists
+                db.ref("roster/" + classVal + "/" + studentKey).set({
+                  name: name,
+                  id: id
+                });
+
+                showMsg("Check-in successful.", "success");
+                document.getElementById("nameInput").value = "";
+                document.getElementById("idInput").value = "";
+              }
+            });
+        })
+        .catch((err) => {
+          console.error(err);
+          showMsg("Error connecting to server.", "error");
         });
-      });
     }
   </script>
 </body>
 </html>
+
